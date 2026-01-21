@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  # 1. Base de données (Stockage Météo)
+  weather_db:
+    image: postgres:15
+    container_name: day3_weather_db
+    environment:
+      POSTGRES_USER: meteo_user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: weather_db
+    ports:
+      - "5434:5432"  # Port 5434 pour éviter conflit avec Day 2
+    volumes:
+      - weather_data:/var/lib/postgresql/data
+    networks:
+      - weather_net
+
+  # 2. L'Espion (Postgres Exporter) - Pour Prometheus
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter
+    container_name: day3_exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://meteo_user:password@weather_db:5432/weather_db?sslmode=disable"
+    ports:
+      - "9187:9187"
+    depends_on:
+      - weather_db
+    networks:
+      - weather_net
+
+  # 3. Le Cerveau (Prometheus) - Pour stocker les métriques
+  prometheus:
+    image: prom/prometheus
+    container_name: day3_prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - weather_net
+
+  # 4. L'Écran (Grafana) - Pour visualiser
+  grafana:
+    image: grafana/grafana:latest
+    container_name: day3_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
+    networks:
+      - weather_net
+
+volumes:
+  weather_data:
+
+networks:
+  weather_net:

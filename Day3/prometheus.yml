@@ -1,0 +1,7 @@
+global:
+  scrape_interval: 5s # Scrape toutes les 5s (agressif pour voir les courbes bouger)
+
+scrape_configs:
+  - job_name: 'postgres_metrics'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
