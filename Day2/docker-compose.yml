@@ -1,0 +1,26 @@
+services:
+  # Ton Postgres existant
+  postgres:
+    image: postgres:15
+    container_name: pokedb_sql
+    env_file:
+      - .env
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  # AJOUT : MongoDB Local
+  mongo:
+    image: mongo:6.0
+    container_name: pokedb_mongo
+    env_file:
+      - .env
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+
+volumes:
+  pgdata:
+  mongodata:
