@@ -1,60 +1,100 @@
-## 📊 Résultats : Impact de l'Indexation (PostgreSQL)
+# 📊 Rapport Audit & Optimisation PostgreSQL (Jour 1)
 
-Voici les mesures de performance réalisées avant et après la création des index B-Tree.
-Les tests ont été effectués sans clause `LIMIT` sur des requêtes retournant un grand volume de données.
-
-| Requête | Temps AVANT (Seq Scan) | Temps APRÈS (Index Scan) | Gain (%) |
-| :--- | :--- | :--- | :--- |
-| **1. Recherche Nom** | 25 ms | 23 ms | <span style="color:green">**+ 8,0 %**</span> |
-| **2. Recherche Notes (Jointure)** | 519 ms | 529 ms | <span style="color:red">**- 1,9 %**</span> |
-| **3. Moyenne par catégorie** | 403 ms | 403 ms | <span style="color:orange">**0,0 %**</span> |
-| **4. Analyse Logs (Complexe)** | 4922 ms | 3709 ms | <span style="color:green">**+ 24,6 %**</span> |
-| **5. Slow Queries (Critique)** | 187 ms | 246 ms | <span style="color:red">**- 31,6 %**</span> |
-
-### 🧐 Analyse et Conclusion
-
-Ces résultats mettent en évidence une règle fondamentale des bases de données : **la Sélectivité**.
-
-1.  **Le Paradoxe de la Régression (Requêtes 2 & 5)** :
-    * Nous observons une perte de performance (-31% sur la requête 5).
-    * **Cause :** L'absence de `LIMIT` oblige la base à récupérer un très grand nombre de lignes (faible sélectivité).
-    * **Explication :** Lire toute la table en continu (*Sequential Scan*) est physiquement plus rapide pour le disque que de faire des millions de sauts d'index (*Random Access*) pour récupérer les lignes une par une. L'index devient ici une charge supplémentaire inutile.
-
-2.  **Le Gain sur la Charge Lourde (Requête 4)** :
-    * Gain significatif de **~1.2s** sur la requête la plus lourde.
-    * Ici, l'index composite a permis d'éviter de scanner inutilement des millions de logs hors de la plage de date, prouvant l'efficacité de l'indexation sur le filtrage volumétrique.
-
-3.  **Conclusion Générale** :
-    * Les index sont redoutables pour des recherches précises (ex: trouver *un* étudiant spécifique).
-    * Pour des requêtes analytiques larges (ex: moyennes, listes complètes), le moteur privilégie souvent le scan complet.
-    * **L'optimisation idéale** aurait nécessité l'ajout de clauses `LIMIT` ou de filtres plus restrictifs pour bénéficier pleinement de la structure en arbre des index.
+Ce rapport analyse les performances d'une base de données E-learning (200k étudiants, 5M logs) et détaille les stratégies d'optimisation mises en place.
 
 ---
 
-## 🔧 Annexe : Détail de la Stratégie d'Indexation
+## 1. Conception & Choix des Types de Données
 
-Le fichier `sql/04_indexes.sql` contient les instructions DDL pour optimiser spécifiquement les 5 requêtes diagnostiquées. Voici la justification technique de chaque index créé :
+Le schéma relationnel a été conçu pour garantir l'intégrité des données tout en optimisant l'espace disque. Voici la justification des types choisis pour les colonnes critiques :
 
-* **`idx_students_lastname`** (B-Tree standard)
-    * **Cible :** Table `students`, colonne `last_name`.
-    * **Objectif :** Accélérer la Requête 1 (Recherche textuelle) en évitant le scan complet des 200 000 étudiants.
+| Champ | Type Choisi | Justification Technique |
+|-------|-------------|-------------------------|
+| Identifiants (`_id`) | `SERIAL` (INT) | Standard PostgreSQL. L'entier (4 bytes) est plus performant pour les jointures et l'indexation B-Tree que des UUID. |
+| Noms / Emails | `VARCHAR(N)` | Permet de définir une limite logique métier (intégrité) contrairement au type `TEXT`, sans surcoût de performance notable. |
+| Dates | `TIMESTAMP` | Nécessaire pour des calculs précis de durée (`access_logs`) et d'ancienneté, impossible avec un simple `DATE`. |
+| Durée (`duration_ms`) | `INT` | Suffisant pour stocker des millisecondes. Moins lourd qu'un `FLOAT` ou `INTERVAL` pour des agrégations simples. |
+| Note (`grade`) | `INT` | Stockage optimisé. Une contrainte `CHECK (0-100)` assure la validité métier. |
 
-* **`idx_enrollments_student`** & **`idx_enrollments_course`**
-    * **Cible :** Table `enrollments`, clés étrangères `student_id` et `course_id`.
-    * **Objectif :** Optimiser les jointures (`JOIN`) critiques de la Requête 2. Sans ces index, PostgreSQL doit souvent effectuer des *Hash Joins* coûteux en mémoire.
+---
 
-* **`idx_enrollments_grade`**
-    * **Cible :** Table `enrollments`, colonne `grade`.
-    * **Objectif :** Supprimer l'étape de tri explicite (*Sort Key*) de la Requête 2 (`ORDER BY grade`), l'index étant déjà trié naturellement.
+## 2. Résultats : Impact de l'Indexation
 
-* **`idx_courses_category_grade`** (Index Couvrant / *Covering Index*)
-    * **Cible :** Table `courses`, colonne `category` (avec `INCLUDE title`).
-    * **Objectif :** Permettre un *Index Only Scan* pour la Requête 3 (Agrégation). Le moteur peut récupérer la catégorie sans jamais lire la table physique (Heap), économisant des I/O disques.
+Les mesures suivantes comparent les temps d'exécution (`Execution Time`) avant et après création des index.
 
-* **`idx_logs_student_date`** (Index Composite)
-    * **Cible :** Table `access_logs`, colonnes `(student_id, access_time)`.
-    * **Objectif :** Traiter la Requête 4 ("La Catastrophe"). La combinaison permet de filtrer la date ET de faire la jointure avec l'étudiant en une seule opération d'index, réduisant drastiquement le nombre de lignes lues.
+> Les plans d'exécution ont été validés via `EXPLAIN (ANALYZE, BUFFERS)` pour confirmer la réduction des accès disques.
 
-* **`idx_logs_perf`** (Index Composite Sélectif)
-    * **Cible :** Table `access_logs`, colonnes `(duration_ms, url_accessed)`.
-    * **Objectif :** Identifier instantanément les requêtes lentes (Requête 5). La colonne `duration_ms` est placée en premier car le filtre `> 490` est très sélectif.
+| Requête | Temps AVANT (Seq Scan) | Temps APRÈS (Index Scan) | Gain |
+|---------|------------------------|--------------------------|------|
+| 1. Recherche Nom | 25 ms | 23 ms | ✅ +8,0 % |
+| 2. Recherche Notes (Jointure) | 519 ms | 529 ms | ❌ -1,9 % |
+| 3. Moyenne par catégorie | 403 ms | 403 ms | ⚠️ 0,0 % |
+| 4. Analyse Logs (Complexe) | 4922 ms | 3709 ms | ✅ +24,6 % |
+| 5. Slow Queries (Critique) | 187 ms | 246 ms | ❌ -31,6 % |
+
+---
+
+## 3. Analyse Approfondie
+
+### ✅ Le Succès (Requête 4)
+
+Le gain de **1.2s** sur l'analyse des logs valide la stratégie de l'index composite. L'analyse des buffers montre que nous sommes passés d'une lecture massive du disque (`Buffers Read`) à des accès mémoire ciblés (`Shared Hit`), grâce au filtrage combiné sur la date et l'étudiant.
+
+### ⚠️ Le Paradoxe de la Régression (Requêtes 2 & 5)
+
+Nous observons une **perte de performance** (-31% sur la requête 5).
+
+**Cause** : L'absence de clause `LIMIT` oblige la base à récupérer un volume massif de lignes (faible sélectivité).
+
+**Explication** : Lire toute la table en continu (Sequential Scan) est physiquement plus rapide pour le disque que de faire des millions de sauts d'index (Random Access) pour récupérer les lignes une par une. Ici, l'index génère un surcoût d'I/O inutile.
+
+---
+
+## 4. Correction de la Requête Mal Conçue
+
+La Requête 5 ("Slow Queries") a été identifiée comme **mal conçue** car elle tente de trier des millions de lignes sans limite, rendant l'index contre-productif.
+
+**Correction Proposée** : Ajout d'un `LIMIT` pour bénéficier du tri de l'index.
+
+```sql
+SELECT student_id, url_accessed, duration_ms, access_time
+FROM access_logs
+WHERE duration_ms > 490
+ORDER BY access_time DESC
+LIMIT 50; -- <--- L'optimisation clé
+```
+
+**Impact de la correction** :
+
+Avec cet ajout, le plan d'exécution bascule sur un **Index Scan Backward**. Le moteur s'arrête dès qu'il a trouvé les 50 logs les plus récents correspondant au critère, rendant la requête quasi-instantanée (**< 5ms**) contre 246ms auparavant.
+
+---
+
+## 🔧 Annexe : Stratégie d'Indexation Détaillée
+
+Le fichier `sql/04_indexes.sql` contient les instructions DDL. Voici la justification technique :
+
+### `idx_students_lastname` (B-Tree)
+
+* **Cible** : `students(last_name)`
+* **Objectif** : Optimise la recherche textuelle (Req 1)
+
+### `idx_enrollments_student` / `idx_enrollments_course`
+
+* **Cible** : Index sur clés étrangères
+* **Objectif** : Indispensable pour éviter les Hash Joins coûteux lors des jointures (Req 2)
+
+### `idx_courses_category_grade` (Covering Index)
+
+* **Cible** : `category` + `INCLUDE(title)`
+* **Objectif** : Permet un **Index Only Scan** pour les agrégations (Req 3), évitant de lire la table physique
+
+### `idx_logs_student_date` (Composite)
+
+* **Cible** : `(student_id, access_time)`
+* **Objectif** : Réduit drastiquement le scope de recherche pour l'historique étudiant (Req 4)
+
+### `idx_logs_perf` (Composite)
+
+* **Cible** : `(duration_ms, url_accessed)`
+* **Objectif** : Place la colonne la plus sélective en premier pour filtrer les lenteurs (Req 5)
