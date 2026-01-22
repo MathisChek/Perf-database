@@ -2,7 +2,6 @@
 
 -- 1. VUE MATÉRIALISÉE
 -- Objectif : Pré-calculer la requête "Moyenne PV par météo" (Requête 5)
--- Le sujet demande de "Mettre en place une vue matérialisée".
 DROP MATERIALIZED VIEW IF EXISTS mv_weather_stats;
 
 CREATE MATERIALIZED VIEW mv_weather_stats AS
@@ -35,7 +34,7 @@ CREATE TABLE fact_captures (
     longitude DECIMAL(9,6),
     capture_date TIMESTAMP,
     weather VARCHAR(20),
-    PRIMARY KEY (capture_id, capture_date) -- La clé de partition doit être dans la PK
+    PRIMARY KEY (capture_id, capture_date)
 ) PARTITION BY RANGE (capture_date);
 
 -- C. Créer les partitions (Exemple : Archives vs Récent)
@@ -56,5 +55,3 @@ FROM fact_captures_old;
 CREATE INDEX idx_part_weather ON fact_captures(weather);
 CREATE INDEX idx_part_lat ON fact_captures(latitude);
 CREATE INDEX idx_part_pokemon ON fact_captures(pokedex_id);
-
--- Vérification : EXPLAIN doit montrer "Partition Scan" au lieu de "Seq Scan" sur des filtres de date.

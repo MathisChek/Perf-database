@@ -14,7 +14,6 @@ PG_CONFIG = {
 }
 
 # 🍃 MongoDB
-# On garde la connexion qui a marché (Local + Admin Source)
 MONGO_URI = "mongodb://etudiant:password@127.0.0.1:27017/?authSource=admin&directConnection=true"
 MONGO_DB = "pokedb"
 MONGO_COLL = "captures"

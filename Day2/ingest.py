@@ -9,12 +9,10 @@ from pymongo import MongoClient
 from datetime import datetime
 from faker import Faker
 
-# Cherger les variables d'ENV
 load_dotenv()
 
 print(f"👀 DEBUG URI: {os.getenv('MONGO_URI')}")
 
-# --- MONGO ATLAS ---
 ATLAS_URI = os.getenv("MONGO_URI")
 
 if not ATLAS_URI:
@@ -24,8 +22,8 @@ if not ATLAS_URI:
 # ==========================================
 # 1. CONFIGURATION
 # ==========================================
-TOTAL_EVENTS = 500000    # Objectif : 500 000 lignes
-BATCH_SIZE = 5000        # Taille des paquets
+TOTAL_EVENTS = 500000
+BATCH_SIZE = 5000
 
 
 # --- POSTGRES LOCAL ---

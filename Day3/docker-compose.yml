@@ -10,13 +10,13 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: weather_db
     ports:
-      - "5434:5432"  # Port 5434 pour éviter conflit avec Day 2
+      - "5434:5432"
     volumes:
       - weather_data:/var/lib/postgresql/data
     networks:
       - weather_net
 
-  # 2. L'Espion (Postgres Exporter) - Pour Prometheus
+  # 2. Postgres Exporter - Pour Prometheus
   postgres-exporter:
     image: prometheuscommunity/postgres-exporter
     container_name: day3_exporter
@@ -29,7 +29,7 @@ services:
     networks:
       - weather_net
 
-  # 3. Le Cerveau (Prometheus) - Pour stocker les métriques
+  # 3. Prometheus - Pour stocker les métriques
   prometheus:
     image: prom/prometheus
     container_name: day3_prometheus
@@ -40,7 +40,7 @@ services:
     networks:
       - weather_net
 
-  # 4. L'Écran (Grafana) - Pour visualiser
+  # 4. Grafana - Pour visualiser
   grafana:
     image: grafana/grafana:latest
     container_name: day3_grafana

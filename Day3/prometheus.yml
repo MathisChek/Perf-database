@@ -1,5 +1,5 @@
 global:
-  scrape_interval: 5s # Scrape toutes les 5s (agressif pour voir les courbes bouger)
+  scrape_interval: 5s
 
 scrape_configs:
   - job_name: 'postgres_metrics'

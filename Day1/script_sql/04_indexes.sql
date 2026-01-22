@@ -29,5 +29,4 @@ CREATE INDEX idx_logs_student_date ON access_logs(student_id, access_time);
 -- On indexe d'abord duration_ms car c'est le filtre le plus sélectif (> 490)
 CREATE INDEX idx_logs_perf ON access_logs(duration_ms, url_accessed);
 
--- APPLIQUER LES CHANGEMENTS
 ANALYZE;

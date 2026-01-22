@@ -36,5 +36,5 @@ CREATE TABLE access_logs (
     student_id INT,
     url_accessed VARCHAR(255),
     access_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    duration_ms INT -- Durée de la requête en ms
+    duration_ms INT
 );

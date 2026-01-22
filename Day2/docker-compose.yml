@@ -1,5 +1,5 @@
 services:
-  # Ton Postgres existant
+  # Postgres Local
   postgres:
     image: postgres:15
     container_name: pokedb_sql
@@ -10,7 +10,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
-  # AJOUT : MongoDB Local
+  # MongoDB Local
   mongo:
     image: mongo:6.0
     container_name: pokedb_mongo

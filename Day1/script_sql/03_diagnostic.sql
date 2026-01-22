@@ -1,6 +1,6 @@
 /* PHASE 2 : DIAGNOSTIC
-   Objectif : Identifier les lenteurs avant optimisation.
-   Utiliser EXPLAIN ANALYZE devant chaque requête pour voir le plan.
+   Objectif : Identifier les lenteurs avant optimisation puis utiliser
+   EXPLAIN ANALYZE devant chaque requête pour voir le plan.
 */
 
 -- REQUÊTE 1 : Recherche simple sur du texte (Full Table Scan attendu)

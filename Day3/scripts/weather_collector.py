@@ -6,7 +6,6 @@ import sys
 from datetime import datetime
 from dotenv import load_dotenv
 
-# Charger les variables d'environnement
 load_dotenv()
 
 # --- CONFIGURATION ---
@@ -68,7 +67,7 @@ def wait_for_db():
 					return True
 			except psycopg2.OperationalError as e:
 					log(f"La base n'est pas encore prête... (Tentative {i+1}/{max_retries})", "WARN")
-					time.sleep(2) # On attend 2 secondes
+					time.sleep(2)
 
 	log("Abandon : Impossible de se connecter à PostgreSQL après plusieurs essais.", "ERROR")
 	return False
@@ -116,10 +115,9 @@ def run_collection():
 	if not wait_for_db():
 		sys.exit(1)
 
-	# 2. Préparation
 	init_db()
 
-	# 3. Boucle infinie
+	# 3. Boucle infinie pour la collecte de données en temps réel
 	print("\n" + "="*50)
 	print("📡 DÉMARRAGE DE LA COLLECTE (Ctrl+C pour arrêter)")
 	print("="*50)
@@ -149,7 +147,7 @@ def run_collection():
 								VALUES (%s, %s, %s, %s, %s)
 						""", (city, temp, hum, press, desc))
 
-						# Affichage compact pour ne pas spammer
+						# Affichage compact
 						print(f"📍 {city:<10} | {temp:>5.1f}°C | 💧 {hum}%")
 						success_count += 1
 					else:
@@ -166,7 +164,7 @@ def run_collection():
 			elapsed = time.time() - start_time
 			log(f"Cycle terminé. {success_count}/{len(CITIES)} villes mises à jour en {elapsed:.2f}s.", "INFO")
 
-			# Pause de 60s
+			# Pause de 10s
 			print("💤 Attente 10s...")
 			time.sleep(10)
 
